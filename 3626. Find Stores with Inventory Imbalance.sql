@@ -1,0 +1,50 @@
+WITH 
+    CALC_STORE_STATS AS (
+        SELECT 
+            STORE_ID, 
+            MAX(PRICE) AS MOST_EXPENSIVE_PRICE, 
+            MIN(PRICE) AS CHEAPEST_PRICE
+        FROM INVENTORY 
+        GROUP BY STORE_ID 
+        HAVING COUNT(PRODUCT_NAME) >= 3
+    ),
+
+    CALC_STORE_MAX_MIN_PRICED_PRODUCTS AS (
+        SELECT 
+            I.STORE_ID, 
+        CASE 
+            WHEN I.PRICE = S.MOST_EXPENSIVE_PRICE THEN 'EXPENSIVE'
+            WHEN I.PRICE = S.CHEAPEST_PRICE THEN 'CHEAP' 
+            ELSE NULL 
+        END AS PRODUCT_TYPE, 
+        I.PRODUCT_NAME, 
+        I.QUANTITY
+        FROM INVENTORY I 
+        INNER JOIN CALC_STORE_STATS S 
+        ON 
+            I.STORE_ID = S.STORE_ID 
+            AND ( 
+                I.PRICE = S.MOST_EXPENSIVE_PRICE
+                OR I.PRICE = S.CHEAPEST_PRICE
+            ) 
+    )
+
+SELECT 
+    A.STORE_ID AS store_id , 
+    S.STORE_NAME AS store_name, 
+    S.LOCATION AS  location,
+    A.PRODUCT_NAME AS most_exp_product, 
+    B.PRODUCT_NAME AS cheapest_product, 
+    ROUND(
+        B.QUANTITY / A.QUANTITY
+    , 2) AS imbalance_ratio  
+FROM CALC_STORE_MAX_MIN_PRICED_PRODUCTS A 
+INNER JOIN CALC_STORE_MAX_MIN_PRICED_PRODUCTS B 
+ON 
+    A.STORE_ID = B.STORE_ID 
+    AND A.PRODUCT_TYPE = 'EXPENSIVE' 
+    AND B.PRODUCT_TYPE = 'CHEAP' 
+    AND A.QUANTITY < B.QUANTITY
+INNER JOIN STORES S 
+ON A.STORE_ID = S.STORE_ID 
+ORDER BY imbalance_ratio DESC, store_name ASC 

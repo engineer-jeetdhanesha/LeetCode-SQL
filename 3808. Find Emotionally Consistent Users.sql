@@ -1,0 +1,40 @@
+WITH 
+    CALC_ACTIVITY_COUNT AS (
+        SELECT 
+            USER_ID, COUNT(CONTENT_ID) AS ACTIVITY_COUNT 
+        FROM REACTIONS 
+        GROUP BY USER_ID 
+        HAVING ACTIVITY_COUNT >= 5
+    ),
+
+    REACTION_COUNT AS (
+        SELECT 
+            USER_ID, 
+            REACTION, 
+            COUNT(*) AS REACTION_COUNT
+        FROM REACTIONS 
+        GROUP BY USER_ID, REACTION
+    ), 
+
+    CALC_REACTION_RATIO AS (
+        SELECT 
+            A.USER_ID, 
+            A.ACTIVITY_COUNT, 
+            R.REACTION,
+            R.REACTION_COUNT,
+            ROUND(
+                R.REACTION_COUNT / A.ACTIVITY_COUNT
+            , 2) AS REACTION_RATIO 
+        FROM CALC_ACTIVITY_COUNT A 
+        INNER JOIN REACTION_COUNT R 
+        ON A.USER_ID = R.USER_ID 
+    )
+
+
+SELECT 
+    USER_ID AS user_id, 
+    REACTION AS dominant_reaction, 
+    REACTION_RATIO AS reaction_ratio
+FROM CALC_REACTION_RATIO 
+WHERE REACTION_RATIO >= 0.60 
+ORDER BY REACTION_RATIO DESC, USER_ID ASC

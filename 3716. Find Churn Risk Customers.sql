@@ -1,0 +1,42 @@
+WITH 
+    CALC_USERS_STATS AS (
+        SELECT 
+            USER_ID, 
+            DATEDIFF( MAX(EVENT_DATE), MIN(EVENT_DATE) ) AS ACTIVE_DURATION,  
+            MAX(MONTHLY_AMOUNT) AS MAX_AMOUNT
+        FROM SUBSCRIPTION_EVENTS 
+        WHERE USER_ID IN (
+            SELECT DISTINCT USER_ID 
+            FROM SUBSCRIPTION_EVENTS 
+            WHERE EVENT_TYPE = 'downgrade' 
+        ) AND USER_ID NOT IN (
+            SELECT DISTINCT USER_ID 
+            FROM SUBSCRIPTION_EVENTS 
+            WHERE EVENT_TYPE = 'cancel'
+        )
+        GROUP BY USER_ID
+    ), 
+
+    CALC_USER_LATEST_DATE AS (
+        SELECT 
+            *, 
+            DENSE_RANK() OVER(PARTITION BY USER_ID ORDER BY EVENT_DATE DESC) AS RNK 
+        FROM SUBSCRIPTION_EVENTS 
+
+    )
+
+SELECT 
+    A.USER_ID AS user_id,
+    B.PLAN_NAME AS current_plan, 
+    B.MONTHLY_AMOUNT AS current_monthly_amount, 
+    A.MAX_AMOUNT AS max_historical_amount, 
+    A.ACTIVE_DURATION AS days_as_subscriber 
+FROM CALC_USERS_STATS A
+INNER JOIN CALC_USER_LATEST_DATE B
+ON 
+    A.USER_ID = B.USER_ID 
+    AND B.RNK = 1 
+    AND A.ACTIVE_DURATION >= 60 
+    AND B.MONTHLY_AMOUNT < 0.5 * A.MAX_AMOUNT 
+ORDER BY 
+    ACTIVE_DURATION DESC, USER_ID ASC

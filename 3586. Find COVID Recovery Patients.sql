@@ -1,0 +1,33 @@
+WITH 
+    CALC_PATIENT_STATS AS (
+        SELECT 
+            L.PATIENT_ID, 
+            L.TEST_DATE AS POSITIVE_DATE, 
+            L.RESULT AS POSITIVE_RESULT, 
+            R.TEST_DATE AS NEGATIVE_DATE, 
+            R.RESULT AS NEGATIVE_RESULT, 
+            ROW_NUMBER() OVER(PARTITION BY L.PATIENT_ID ORDER BY L.TEST_DATE ASC) AS POS_RNK,
+            ROW_NUMBER() OVER(PARTITION BY L.PATIENT_ID ORDER BY R.TEST_DATE ASC) AS NEG_RNK
+        FROM COVID_TESTS L 
+        INNER JOIN COVID_TESTS R 
+        ON 
+            L.PATIENT_ID = R.PATIENT_ID 
+            AND L.RESULT = 'Positive' 
+            AND R.RESULT = 'Negative' 
+            AND L.TEST_DATE < R.TEST_DATE
+    )
+
+SELECT 
+    S.PATIENT_ID AS patient_id, 
+    P.PATIENT_NAME AS patient_name, 
+    P.AGE AS age, 
+    DATEDIFF(NEGATIVE_DATE, POSITIVE_DATE) AS recovery_time 
+FROM (
+    SELECT 
+        * 
+    FROM CALC_PATIENT_STATS 
+    WHERE POS_RNK = 1 AND NEG_RNK = 1
+) S 
+INNER JOIN PATIENTS P  
+ON S.PATIENT_ID = P.PATIENT_ID
+ORDER BY recovery_time ASC, patient_name ASC

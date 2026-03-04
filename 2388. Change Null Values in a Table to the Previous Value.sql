@@ -1,0 +1,23 @@
+
+WITH 
+
+    ORDERED_COFFEESHOP AS (
+        SELECT 
+            *, 
+            ROW_NUMBER() OVER() AS RNK 
+        FROM COFFEESHOP
+    ), 
+
+    CALC_GRP_NUM AS (
+        SELECT 
+            *, 
+            SUM(
+                CASE WHEN DRINK IS NULL THEN 0 ELSE 1 END
+            ) OVER(ORDER BY RNK ASC) AS GRP_NUM 
+        FROM ORDERED_COFFEESHOP
+    )
+
+SELECT 
+    ID, 
+    FIRST_VALUE(DRINK) OVER(PARTITION BY GRP_NUM ORDER BY RNK ASC) AS DRINK
+FROM CALC_GRP_NUM
